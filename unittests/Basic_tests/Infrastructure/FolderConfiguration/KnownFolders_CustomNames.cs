@@ -1,27 +1,21 @@
-﻿using System;
-using System.Collections.Immutable;
-using System.IO;
-using System.Runtime.CompilerServices;
+﻿using System.Collections.Immutable;
 using FluentAssertions;
 using grate.Configuration;
 using grate.Migration;
 using TestCommon.TestInfrastructure;
-using NUnit.Framework;
 using static grate.Configuration.KnownFolderKeys;
 using static grate.Configuration.MigrationType;
 using static grate.Migration.ConnectionType;
+using static TestCommon.TestInfrastructure.DescriptiveTestObjects;
 
 namespace Basic_tests.Infrastructure.FolderConfiguration;
 
-[TestFixture]
-[TestOf(nameof(FoldersConfiguration))]
-[Category("Basic tests")]
 // ReSharper disable once InconsistentNaming
 public class KnownFolders_CustomNames
 {
     private static readonly Random Random = new();
 
-    [Test]
+    [Fact]
     public void Returns_folders_in_same_order_as_default()
     {
         var items = Folders.Values.ToImmutableArray();
@@ -45,24 +39,24 @@ public class KnownFolders_CustomNames
         });
     }
 
-    [Test]
-    [TestCaseSource(nameof(ExpectedKnownFolderNames))]
+    [Theory]
+    [MemberData(nameof(ExpectedKnownFolderNames))]
     public void Has_expected_folder_configuration(
         MigrationsFolder folder,
-        string expectedName,
-        MigrationType expectedType,
-        ConnectionType expectedConnectionType,
-        TransactionHandling transactionHandling
+        string name,
+        MigrationType type,
+        ConnectionType conn,
+        TransactionHandling tran
     )
     {
         var root = Root.ToString();
 
         Assert.Multiple(() =>
         {
-            folder.Path.Should().Be(expectedName);
-            folder.Type.Should().Be(expectedType);
-            folder.ConnectionType.Should().Be(expectedConnectionType);
-            folder.TransactionHandling.Should().Be(transactionHandling);
+            folder.Path.Should().Be(name);
+            folder.Type.Should().Be(type);
+            folder.ConnectionType.Should().Be(conn);
+            folder.TransactionHandling.Should().Be(tran);
         });
     }
 
@@ -84,44 +78,29 @@ public class KnownFolders_CustomNames
         Permissions = "permissions" + Random.GetString(8),
         AfterMigration = "afterMigration" + Random.GetString(8),
     };
-    
+
     private static readonly DirectoryInfo Root = TestConfig.CreateRandomTempDirectory();
     private static readonly IFoldersConfiguration Folders = FoldersConfiguration.Default(OverriddenFolderNames);
-
-    private static readonly object?[] ExpectedKnownFolderNames =
+    
+    public static TheoryData<MigrationsFolderWithDescription, string, MigrationType, ConnectionType, TransactionHandling> ExpectedKnownFolderNames()
     {
-        GetTestCase(Folders[BeforeMigration], OverriddenFolderNames.BeforeMigration, EveryTime, Default, TransactionHandling.Autonomous),
-        GetTestCase(Folders[AlterDatabase], OverriddenFolderNames.AlterDatabase, AnyTime, Admin, TransactionHandling.Autonomous),
-        GetTestCase(Folders[RunAfterCreateDatabase], OverriddenFolderNames.RunAfterCreateDatabase, AnyTime, Default,
-            TransactionHandling.Default),
-        GetTestCase(Folders[RunBeforeUp], OverriddenFolderNames.RunBeforeUp, AnyTime, Default, TransactionHandling.Default),
-        GetTestCase(Folders[Up], OverriddenFolderNames.Up, Once, Default, TransactionHandling.Default),
-        GetTestCase(Folders[RunFirstAfterUp], OverriddenFolderNames.RunFirstAfterUp, AnyTime, Default, TransactionHandling.Default),
-        GetTestCase(Folders[Functions], OverriddenFolderNames.Functions, AnyTime, Default, TransactionHandling.Default),
-        GetTestCase(Folders[Views], OverriddenFolderNames.Views, AnyTime, Default, TransactionHandling.Default),
-        GetTestCase(Folders[Sprocs], OverriddenFolderNames.Sprocs, AnyTime, Default, TransactionHandling.Default),
-        GetTestCase(Folders[Triggers], OverriddenFolderNames.Triggers, AnyTime, Default, TransactionHandling.Default),
-        GetTestCase(Folders[Indexes], OverriddenFolderNames.Indexes, AnyTime, Default, TransactionHandling.Default),
-        GetTestCase(Folders[RunAfterOtherAnyTimeScripts], OverriddenFolderNames.RunAfterOtherAnyTimeScripts, AnyTime, Default,
-            TransactionHandling.Default),
-        GetTestCase(Folders[Permissions], OverriddenFolderNames.Permissions, EveryTime, Default, TransactionHandling.Autonomous),
-        GetTestCase(Folders[AfterMigration], OverriddenFolderNames.AfterMigration, EveryTime, Default, TransactionHandling.Autonomous),
-    };
-
-    private static TestCaseData GetTestCase(
-        MigrationsFolder? folder,
-        string expectedName,
-        MigrationType expectedType,
-        ConnectionType expectedConnectionType,
-        TransactionHandling transactionHandling,
-        [CallerArgumentExpression(nameof(folder))] string migrationsFolderDefinitionName = ""
-    ) =>
-        new TestCaseData(folder, expectedName, expectedType, expectedConnectionType, transactionHandling)
-            .SetArgDisplayNames(
-                migrationsFolderDefinitionName,
-                expectedName,
-                expectedType.ToString(),
-                "conn: " + expectedConnectionType,
-                "tran: " + transactionHandling
-            );
+        var data = new TheoryData<MigrationsFolderWithDescription, string, MigrationType, ConnectionType, TransactionHandling>
+        {
+            { Describe(Folders[BeforeMigration])!, OverriddenFolderNames.BeforeMigration, EveryTime, Default, TransactionHandling.Autonomous },
+            { Describe(Folders[AlterDatabase])!, OverriddenFolderNames.AlterDatabase, AnyTime, Admin, TransactionHandling.Autonomous },
+            { Describe(Folders[RunAfterCreateDatabase])!, OverriddenFolderNames.RunAfterCreateDatabase, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[RunBeforeUp])!, OverriddenFolderNames.RunBeforeUp, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[Up])!, OverriddenFolderNames.Up, Once, Default, TransactionHandling.Default },
+            { Describe(Folders[RunFirstAfterUp])!, OverriddenFolderNames.RunFirstAfterUp, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[Functions])!, OverriddenFolderNames.Functions, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[Views])!, OverriddenFolderNames.Views, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[Sprocs])!, OverriddenFolderNames.Sprocs, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[Triggers])!, OverriddenFolderNames.Triggers, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[Indexes])!, OverriddenFolderNames.Indexes, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[RunAfterOtherAnyTimeScripts])!, OverriddenFolderNames.RunAfterOtherAnyTimeScripts, AnyTime, Default, TransactionHandling.Default },
+            { Describe(Folders[Permissions])!, OverriddenFolderNames.Permissions, EveryTime, Default, TransactionHandling.Autonomous },
+            { Describe(Folders[AfterMigration])!, OverriddenFolderNames.AfterMigration, EveryTime, Default, TransactionHandling.Autonomous }
+       };
+       return data;
+    }
 }

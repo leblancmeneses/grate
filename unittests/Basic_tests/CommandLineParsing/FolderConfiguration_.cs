@@ -1,26 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.CommandLine.Invocation;
 using System.CommandLine.NamingConventionBinder;
 using System.CommandLine.Parsing;
-using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using FluentAssertions;
 using grate.Commands;
 using grate.Configuration;
-using NUnit.Framework;
 
 namespace Basic_tests.CommandLineParsing;
 
-[TestFixture]
-[Category("Basic tests")]
 // ReSharper disable once InconsistentNaming
 public class FolderConfiguration_
 {
-    [Test()]
+    [Fact]
     public async Task Default()
     {
         var cfg = await ParseGrateConfiguration("--sqlfilesdirectory=/tmp");
@@ -32,61 +24,53 @@ public class FolderConfiguration_
         AssertEquivalent(expected.Values, actual?.Values);
     }
 
-    [Test]
-    [TestCaseSource(nameof(FoldersCommandLines))]
-    public async Task Default_With_Overrides(string commandLine, Func<KnownFolderNames, KnownFolderNames> applyExpectedOverrides)
+    [Theory]
+    [MemberData(nameof(FoldersCommandLines))]
+    public async Task Default_With_Overrides(string commandLine, KnownFolderNames folderConfig)
     {
         var cfg = await ParseGrateConfiguration("--sqlfilesdirectory=/tmp", commandLine);
         _ = cfg?.SqlFilesDirectory ?? new DirectoryInfo("/tmp");
-        var folderConfig = applyExpectedOverrides(KnownFolderNames.Default);
         var expected = FoldersConfiguration.Default(folderConfig);
-        
+
         var actual = cfg?.Folders;
-        
-        AssertEquivalent(expected.Values, actual?.Values);
-    }
-    
-    [Test]
-    [TestCaseSource(nameof(FullyCustomFoldersCommandLines))]
-    public async Task Fully_Customised(string root, string foldersArgument, IFoldersConfiguration expected)
-    {
-        var cfg = await ParseGrateConfiguration("--sqlfilesdirectory="+ root, foldersArgument);
-        var actual = cfg?.Folders;
-        
+
         AssertEquivalent(expected.Values, actual?.Values);
     }
 
-    private static readonly object?[] FoldersCommandLines =
+    [Theory]
+    [MemberData(nameof(FullyCustomFoldersCommandLines))]
+    public async Task Fully_Customised(string name, string root, string foldersArgument, IFoldersConfiguration expected)
     {
-        GetTestCase("--folders=up=tables", names => names with { Up = "tables" }),
-        GetTestCase("--folders=up=tables;views=projections", names => names with { Up = "tables", Views = "projections"})
-    };
-    
-    private static readonly object?[] FullyCustomFoldersCommandLines =
-    {
-        GetCustomisedTestCase(
-        "Mostly defaults",
-        "/tmp/jalla",
-@"--folders=folder1=type:Once;folder2=type:EveryTime;folder3=type:AnyTime",
-        new FoldersConfiguration(
-            new MigrationsFolder("folder1", MigrationType.Once),
-            new MigrationsFolder("folder2", MigrationType.EveryTime),
-            new MigrationsFolder("folder3", MigrationType.AnyTime)
-        )),
-    };
+        var s = name;
+        var cfg = await ParseGrateConfiguration("--sqlfilesdirectory=" + root, foldersArgument);
+        var actual = cfg?.Folders;
 
-    private static TestCaseData GetTestCase(
-        string folderArg,
-        Func<KnownFolderNames, KnownFolderNames> expectedOverrides,
-        [CallerArgumentExpression(nameof(expectedOverrides))] string overridesText = ""
-    ) => new TestCaseData(folderArg, expectedOverrides).SetArgDisplayNames(folderArg, overridesText);
-    
-    private static TestCaseData GetCustomisedTestCase(
-        string caseName,
-        string root,
-        string folderArg,
-        IFoldersConfiguration expected
-    ) => new TestCaseData(root, folderArg, expected).SetArgDisplayNames(caseName, folderArg);
+        AssertEquivalent(expected.Values, actual?.Values);
+    }
+
+    public static TheoryData<string, KnownFolderNames> FoldersCommandLines() =>
+        new()
+        {
+            { "--folders=up=tables", Wrap(KnownFolderNames.Default with { Up = "tables" })! },
+            { "--folders=up=tables;views=projections", Wrap(KnownFolderNames.Default with { Up = "tables", Views = "projections" })! },
+        };
+
+
+    public static TheoryData<string, string, string, IFoldersConfiguration> FullyCustomFoldersCommandLines() =>
+        new()
+        {
+            {
+                "Mostly defaults",
+                "/tmp/jalla",
+                @"--folders=folder1=type:Once;folder2=type:EveryTime;folder3=type:AnyTime",
+                new FoldersConfiguration(
+                    new MigrationsFolder("folder1", MigrationType.Once),
+                    new MigrationsFolder("folder2", MigrationType.EveryTime),
+                    new MigrationsFolder("folder3", MigrationType.AnyTime)
+                )
+            }
+        };
+
 
     private static void AssertEquivalent(
         IEnumerable<MigrationsFolder?> expected,
@@ -126,7 +110,21 @@ public class FolderConfiguration_
         var migrateCommand = new MigrateCommand(null!);
         ParseResult p = new Parser(migrateCommand).Parse(commandline);
         await cmd.InvokeAsync(new InvocationContext(p));
-        
+
         return cfg;
     }
+
+    private static KnownFolderNamesWithDescription? Wrap(KnownFolderNames? names, [CallerArgumentExpression(nameof(names))] string description = "") =>
+        names is { } ? new KnownFolderNamesWithDescription(names) { Description =  description} : null;
+
+    public record KnownFolderNamesWithDescription : KnownFolderNames
+    {
+        public KnownFolderNamesWithDescription(KnownFolderNames folder) : base(folder)
+        {
+        }
+
+        public string Description { get; init; } = null!;
+        public override string ToString() => Description;
+    }
+
 }
